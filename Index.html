@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>V12 Apex — MercedesForum VIN Checker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:       #0a0a0a;
+    --surface:  #111111;
+    --border:   #222222;
+    --accent:   #c8a84b;
+    --accent2:  #8b1a1a;
+    --us:       #2d6a4f;
+    --us-text:  #74c69d;
+    --nonus:    #6b2737;
+    --nonus-text: #f4a261;
+    --unk:      #2c3e50;
+    --unk-text: #7f8c8d;
+    --text:     #e8e8e8;
+    --muted:    #555;
+    --mono:     'IBM Plex Mono', monospace;
+    --sans:     'IBM Plex Sans', sans-serif;
+    --display:  'Bebas Neue', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  /* Header */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 20px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+  .header h1 {
+    font-family: var(--display);
+    font-size: 2.4rem;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+  .header .sub {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* Discriminator note */
+  .discriminator {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    margin-bottom: 20px;
+    line-height: 1.8;
+  }
+  .discriminator span { color: var(--accent); }
+
+  /* Input area */
+  .input-section {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    margin-bottom: 20px;
+    align-items: start;
+  }
+  .input-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .input-label {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  textarea {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    padding: 12px;
+    resize: vertical;
+    min-height: 120px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+    line-height: 1.6;
+  }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--muted); }
+
+  .btn-run {
+    font-family: var(--display);
+    font-size: 1.1rem;
+    letter-spacing: 2px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 14px 28px;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    white-space: nowrap;
+    align-self: end;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-run:hover { opacity: 0.85; }
+  .btn-run:active { transform: scale(0.98); }
+  .btn-run:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Progress bar */
+  .progress-wrap {
+    margin-bottom: 16px;
+    display: none;
+  }
+  .progress-wrap.visible { display: block; }
+  .progress-label {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .progress-bar-bg {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    height: 4px;
+  }
+  .progress-bar-fill {
+    background: var(--accent);
+    height: 100%;
+    width: 0%;
+    transition: width 0.3s;
+  }
+
+  /* Summary row */
+  .summary {
+    display: none;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+  }
+  .summary.visible { display: grid; }
+  .summary-item {
+    background: var(--surface);
+    padding: 14px 16px;
+    text-align: center;
+  }
+  .summary-num {
+    font-family: var(--display);
+    font-size: 2rem;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .summary-lbl {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+  }
+  .s-us .summary-num   { color: var(--us-text); }
+  .s-non .summary-num  { color: var(--nonus-text); }
+  .s-unk .summary-num  { color: var(--unk-text); }
+  .s-tot .summary-num  { color: var(--accent); }
+
+  /* Results table */
+  .results-wrap { display: none; }
+  .results-wrap.visible { display: block; }
+
+  .results-header {
+    display: grid;
+    grid-template-columns: 2fr 60px 80px 80px 100px 120px;
+    gap: 0;
+    background: #000;
+    border: 1px solid var(--border);
+    border-bottom: none;
+  }
+  .results-header div {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    padding: 8px 12px;
+    border-right: 1px solid var(--border);
+  }
+  .results-header div:last-child { border-right: none; }
+
+  .result-row {
+    display: grid;
+    grid-template-columns: 2fr 60px 80px 80px 100px 120px;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-top: none;
+    transition: background 0.15s;
+  }
+  .result-row:hover { background: #161616; }
+  .result-row.us    { border-left: 3px solid var(--us-text); }
+  .result-row.nonus { border-left: 3px solid var(--nonus-text); }
+  .result-row.unk   { border-left: 3px solid var(--muted); }
+  .result-row.loading { opacity: 0.5; }
+
+  .result-row div {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    padding: 10px 12px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+  }
+  .result-row div:last-child { border-right: none; }
+
+  .cell-vin { color: var(--text); letter-spacing: 0.5px; }
+  .cell-yr  { color: var(--muted); }
+  .cell-fuel { color: var(--text); }
+  .cell-msrp { color: var(--muted); font-size: 0.72rem; }
+
+  .badge {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    font-weight: 500;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    text-transform: uppercase;
+  }
+  .badge-us    { background: var(--us);    color: var(--us-text); }
+  .badge-nonus { background: var(--nonus); color: var(--nonus-text); }
+  .badge-unk   { background: var(--unk);   color: var(--unk-text); }
+  .badge-loading { color: var(--muted); font-size: 0.65rem; }
+
+  .cell-action { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .action-new {
+    font-size: 0.62rem;
+    color: var(--us-text);
+    letter-spacing: 0.5px;
+  }
+  .action-db  { font-size: 0.62rem; color: var(--muted); }
+  .action-dni { font-size: 0.62rem; color: var(--nonus-text); }
+
+  /* SQL output */
+  .sql-section {
+    display: none;
+    margin-top: 20px;
+  }
+  .sql-section.visible { display: block; }
+  .sql-label {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .btn-copy {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    background: var(--border);
+    color: var(--text);
+    border: 1px solid var(--muted);
+    padding: 4px 10px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: background 0.2s;
+  }
+  .btn-copy:hover { background: #333; }
+  .sql-box {
+    background: #000;
+    border: 1px solid var(--border);
+    padding: 14px;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    line-height: 1.7;
+    color: #a8d8a8;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  /* Spinner */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border: 1.5px solid var(--muted);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 6px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>V12 APEX</h1>
+  <span class="sub">MercedesForum VIN Verifier — US Market Classifier</span>
+</div>
+
+<div class="discriminator">
+  <span>DISCRIMINATOR:</span> Fuel tank ≥ 23.0 gal = US spec &nbsp;|&nbsp; Fuel tank &lt; 23.0 gal = Non-US<br>
+  <span>DO NOT INSERT:</span> WDDUG7KBXJA380308 &nbsp;|&nbsp; WDDUG7KB5JA400240 (non-US sequence anchors)<br>
+  <span>SOURCE:</span> mercedesforum.com/forum/vindecoder.php — runs through your browser session, no Cloudflare issues
+</div>
+
+<div class="input-section">
+  <div class="input-wrap">
+    <div class="input-label">VINs to check — one per line (or comma/space separated)</div>
+    <textarea id="vinInput" placeholder="WDDUG7KB6LA526884&#10;WDDUG7KB8JA378847&#10;WDDUG7KB9KA470244"></textarea>
+  </div>
+  <button class="btn-run" id="runBtn" onclick="runCheck()">
+    ▶ RUN
+  </button>
+</div>
+
+<div class="progress-wrap" id="progressWrap">
+  <div class="progress-label">
+    <span id="progressText">Checking VINs...</span>
+    <span id="progressCount">0 / 0</span>
+  </div>
+  <div class="progress-bar-bg">
+    <div class="progress-bar-fill" id="progressFill"></div>
+  </div>
+</div>
+
+<div class="summary" id="summary">
+  <div class="summary-item s-tot">
+    <div class="summary-num" id="sumTotal">0</div>
+    <div class="summary-lbl">Total</div>
+  </div>
+  <div class="summary-item s-us">
+    <div class="summary-num" id="sumUS">0</div>
+    <div class="summary-lbl">US Market</div>
+  </div>
+  <div class="summary-item s-non">
+    <div class="summary-num" id="sumNon">0</div>
+    <div class="summary-lbl">Non-US</div>
+  </div>
+  <div class="summary-item s-unk">
+    <div class="summary-num" id="sumUnk">0</div>
+    <div class="summary-lbl">Unknown</div>
+  </div>
+</div>
+
+<div class="results-wrap" id="resultsWrap">
+  <div class="results-header">
+    <div>VIN</div>
+    <div>Year</div>
+    <div>Fuel</div>
+    <div>MSRP</div>
+    <div>Market</div>
+    <div>Action</div>
+  </div>
+  <div id="resultsBody"></div>
+</div>
+
+<div class="sql-section" id="sqlSection">
+  <div class="sql-label">
+    <span>Supabase INSERT — new US cars only</span>
+    <button class="btn-copy" onclick="copySQL()">Copy SQL</button>
+  </div>
+  <div class="sql-box" id="sqlBox"></div>
+</div>
+
+<script>
+const DO_NOT_INSERT = new Set([
+  'WDDUG7KBXJA380308',
+  'WDDUG7KB5JA400240'
+]);
+
+const KNOWN_US = new Set([
+  'WDDUG7KB0JA399210','WDDUG7KB0JA405023','WDDUG7KB2JA391335',
+  'WDDUG7KB2JA403516','WDDUG7KB3JA380425','WDDUG7KB3JA388217',
+  'WDDUG7KB4JA385794','WDDUG7KB6JA374313','WDDUG7KB9JA376069',
+  'WDDUG7KB0KA423507','WDDUG7KB1KA423421','WDDUG7KB9KA470244',
+  'W1KUG7KB6LA527873','WDDUG7KB5LA526908','WDDUG7KB6LA526884',
+  'WDDUG7KBXLA526290','WDDUG7KB6JA376515','WDDUG7KB0JA377529',
+  'WDDUG7KB8JA387693','WDDUG7KB1JA400767','WDDUG7KB4JA404263',
+]);
+
+const US_FUEL_MIN = 23.0;
+let results = [];
+
+function parseVins(raw) {
+  return [...new Set(
+    raw.split(/[\n,\s]+/)
+       .map(v => v.trim().toUpperCase())
+       .filter(v => v.length === 17 && /^[A-HJ-NPR-Z0-9]{17}$/.test(v))
+  )];
+}
+
+async function fetchVin(vin) {
+  try {
+    const resp = await fetch(`https://mercedesforum.com/forum/vindecoder.php?vin=${vin}`);
+    if (!resp.ok) return { vin, status: 'error', fuel_gal: null, msrp: null, us_market: 'ERROR' };
+    const html = await resp.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const text = doc.body ? doc.body.innerText : '';
+
+    const hasDatacard = text.includes('AMG S 65') || text.includes('S65V') || text.includes('Fuel Capacity');
+    if (!hasDatacard) return { vin, status: 'no_datacard', fuel_gal: null, msrp: null, us_market: 'UNKNOWN' };
+
+    const fuelMatch = text.match(/Fuel Capacity[^0-9]*(\d+\.?\d*)\s*gal/);
+    const msrpMatch = text.match(/MSRP\s*\$([\d,]+)/);
+    const fuel = fuelMatch ? parseFloat(fuelMatch[1]) : null;
+
+    return {
+      vin,
+      status: 'ok',
+      fuel_gal: fuel,
+      msrp: msrpMatch ? msrpMatch[1] : null,
+      us_market: fuel != null ? (fuel >= US_FUEL_MIN ? 'US' : 'NON_US') : 'UNKNOWN'
+    };
+  } catch(e) {
+    return { vin, status: 'error', fuel_gal: null, msrp: null, us_market: 'ERROR' };
+  }
+}
+
+function getYear(vin) {
+  const yearMap = { 'F':'2015','G':'2016','H':'2017','J':'2018','K':'2019','L':'2020' };
+  return yearMap[vin[9]] || '—';
+}
+
+function rowHTML(vin, result) {
+  const year = getYear(vin);
+  const isKnown = KNOWN_US.has(vin);
+  const isDNI = DO_NOT_INSERT.has(vin);
+  const market = result ? result.us_market : 'LOADING';
+  const fuel = result ? (result.fuel_gal != null ? result.fuel_gal + ' gal' : '—') : '—';
+  const msrp = result ? (result.msrp ? '$' + result.msrp : '—') : '—';
+
+  let rowClass = 'result-row';
+  let badge = '';
+  let action = '';
+
+  if (!result) {
+    rowClass += ' loading';
+    badge = `<span class="badge-loading"><span class="spinner"></span>checking...</span>`;
+    action = '';
+  } else if (market === 'US') {
+    rowClass += ' us';
+    badge = `<span class="badge badge-us">US ✓</span>`;
+    if (isDNI)      action = `<span class="action-dni">⛔ DO NOT INSERT</span>`;
+    else if (isKnown) action = `<span class="action-db">already in DB</span>`;
+    else            action = `<span class="action-new">← NEW — INSERT</span>`;
+  } else if (market === 'NON_US') {
+    rowClass += ' nonus';
+    badge = `<span class="badge badge-nonus">Non-US</span>`;
+    action = isDNI ? `<span class="action-dni">⛔ DO NOT INSERT</span>` : `<span class="action-db">skip</span>`;
+  } else {
+    rowClass += ' unk';
+    badge = `<span class="badge badge-unk">${market === 'ERROR' ? 'Error' : 'Unknown'}</span>`;
+    action = `<span class="action-db">check manually</span>`;
+  }
+
+  return `<div class="${rowClass}" id="row-${vin}">
+    <div class="cell-vin">${vin}</div>
+    <div class="cell-yr">${year}</div>
+    <div class="cell-fuel">${fuel}</div>
+    <div class="cell-msrp">${msrp}</div>
+    <div>${badge}</div>
+    <div class="cell-action">${action}</div>
+  </div>`;
+}
+
+function updateSummary(results) {
+  const us = results.filter(r => r.us_market === 'US').length;
+  const non = results.filter(r => r.us_market === 'NON_US').length;
+  const unk = results.filter(r => r.us_market !== 'US' && r.us_market !== 'NON_US').length;
+  document.getElementById('sumTotal').textContent = results.length;
+  document.getElementById('sumUS').textContent = us;
+  document.getElementById('sumNon').textContent = non;
+  document.getElementById('sumUnk').textContent = unk;
+}
+
+function buildSQL(results) {
+  const newUS = results.filter(r =>
+    r.us_market === 'US' &&
+    !KNOWN_US.has(r.vin) &&
+    !DO_NOT_INSERT.has(r.vin)
+  );
+  if (!newUS.length) return null;
+
+  const yearMap = { 'F':'2015','G':'2016','H':'2017','J':'2018','K':'2019','L':'2020' };
+  const rows = newUS.map(r => {
+    const yr = yearMap[r.vin[9]] || '2018';
+    const cohort = `${yr}_S65`;
+    return `  ('${r.vin}', '${cohort}', ${yr}, 'S65 AMG', 50, 50, 'watch', 'pipeline', 'mercedesforum_verify', now())`;
+  });
+
+  return `-- vehicle_market inserts
+INSERT INTO vehicle_market (vin, updated_at) VALUES
+${newUS.map(r => `  ('${r.vin}', now())`).join(',\n')};
+
+-- vehicles inserts
+INSERT INTO vehicles (vin, cohort, year, trim, quality_score,
+  composite_score, target_tier, listing_status, source, updated_at)
+VALUES
+${rows.join(',\n')};`;
+}
+
+async function runCheck() {
+  const raw = document.getElementById('vinInput').value;
+  const vins = parseVins(raw);
+  if (!vins.length) { alert('No valid VINs found.'); return; }
+
+  results = [];
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('progressWrap').classList.add('visible');
+  document.getElementById('summary').classList.add('visible');
+  document.getElementById('resultsWrap').classList.add('visible');
+  document.getElementById('sqlSection').classList.remove('visible');
+
+  // Render placeholder rows
+  const body = document.getElementById('resultsBody');
+  body.innerHTML = vins.map(v => rowHTML(v, null)).join('');
+
+  for (let i = 0; i < vins.length; i++) {
+    const vin = vins[i];
+    document.getElementById('progressCount').textContent = `${i + 1} / ${vins.length}`;
+    document.getElementById('progressText').textContent = `Checking ${vin}...`;
+    document.getElementById('progressFill').style.width = `${((i) / vins.length) * 100}%`;
+
+    const result = await fetchVin(vin);
+    results.push(result);
+
+    // Update row
+    const rowEl = document.getElementById(`row-${vin}`);
+    if (rowEl) rowEl.outerHTML = rowHTML(vin, result);
+
+    updateSummary(results);
+
+    // Small delay to be polite to the server
+    if (i < vins.length - 1) await new Promise(r => setTimeout(r, 1200));
+  }
+
+  document.getElementById('progressFill').style.width = '100%';
+  document.getElementById('progressText').textContent = 'Complete';
+  document.getElementById('progressCount').textContent = `${vins.length} / ${vins.length}`;
+  document.getElementById('runBtn').disabled = false;
+
+  // SQL output
+  const sql = buildSQL(results);
+  if (sql) {
+    document.getElementById('sqlBox').textContent = sql;
+    document.getElementById('sqlSection').classList.add('visible');
+  }
+}
+
+function copySQL() {
+  const text = document.getElementById('sqlBox').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.btn-copy');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy SQL', 1500);
+  });
+}
+</script>
+</body>
+</html>
